@@ -1,0 +1,65 @@
+# Postexman - Use case 1
+
+```elixir
+my_app_root = Path.join(__DIR__, "..")
+
+Mix.install([
+  {:postexman, path: my_app_root},
+  {:kino, "~> 0.8.1"}
+])
+```
+
+## Instructions
+
+* run genserver for tokens
+* get token from genserver whenever we want to get something
+
+## Your API
+
+```elixir
+defmodule Api do
+  alias PX.TokenStore
+
+  def get_token() do
+    pass = System.fetch_env!("LB_PASS")
+    name = System.fetch_env!("LB_USERNAME")
+
+    headers = [content_type: "application/json"]
+    body = %{email: name, password: pass}
+    domain = "https://addyourdomain"
+    res = Req.post!("#{domain}/auth", json: body, headers: headers)
+    res.body["data"] # return the token
+  end
+
+  def token() do
+    TokenStore.grab(:manager)
+  end
+
+  def stop() do
+    TokenStore.stop(:manager)
+  end
+
+  def manager() do
+    is = Process.whereis(:manager)
+
+    case is do
+      nil ->
+        PX.GrabToken.start_link(
+          &get_token/0,
+          :manager,
+          timeout: :timer.seconds(10)
+        )
+
+      pid ->
+        pid
+    end
+  end
+end
+```
+
+```elixir
+# Api.manager()
+# Api.token()
+# Api.stop()
+```
+
