@@ -2,13 +2,9 @@ defmodule PX.TokenStore do
   use GenServer
 
   # Start with atom name
-  def start_link(token_callback, name, opts) when is_atom(name) and is_function(token_callback) do
-    GenServer.start_link(__MODULE__, {token_callback, opts}, name: name)
-  end
-
-  # Start
-  def start_link(token_callback, opts \\ []) when is_function(token_callback) do
-    GenServer.start_link(__MODULE__, {token_callback, opts})
+  def start_link(token_callback, opts) when is_function(token_callback) do
+    genserver_opts = Keyword.get(opts, :name) && [name: Keyword.get(opts, :name)] || []
+    GenServer.start_link(__MODULE__, {token_callback, opts}, genserver_opts)
   end
 
   def grab(pid) do
@@ -19,22 +15,24 @@ defmodule PX.TokenStore do
     GenServer.stop(pid)
   end
 
-  def refresh(pid, %{callback: token_callback, timeout: timeout}) do
+  def refresh(pid, %{callback: token_callback, timeout: timeout} = state) do
     token = token_callback.()
     timer = Process.send_after(pid, :trigger_refresh, timeout)
-    %{token: token, timer: timer, callback: token_callback, timeout: timeout}
+    Map.merge(state, %{token: token, timer: timer, callback: token_callback, timeout: timeout})
   end
 
   @impl true
   def init({token_callback, opts}) do
     five_mins = :timer.minutes(5)
     timeout = Keyword.get(opts, :timeout, five_mins)
+    debug = Keyword.get(opts, :debug, false)
 
     state =
       refresh(self(),
         %{
         callback: token_callback,
-        timeout: timeout
+        timeout: timeout,
+        debug: debug
       })
 
     {:ok, state}
@@ -60,16 +58,21 @@ defmodule PX.TokenStore do
 
   @impl true
   def handle_info({:new_token, state}, _old_state) do
-    IO.puts("New token")
+    %{token: token, debug: debug} = state
+    if(debug) do
+      IO.inspect(token, label: "New token")
+    end
     {:noreply, state}
   end
 
   @impl true
-  def terminate(reason, state) do
-    IO.puts("Terminating token manager")
-    IO.inspect(state, label: "State")
-    IO.inspect(self(), label: "PID")
-    IO.inspect(reason, label: "reason")
-    IO.puts("Terminated")
+  def terminate(reason, %{debug: debug} = state) do
+    if(debug) do
+      IO.puts("Terminating token manager")
+      IO.inspect(state, label: "State")
+      IO.inspect(self(), label: "PID")
+      IO.inspect(reason, label: "reason")
+      IO.puts("Terminated")
+    end
   end
 end

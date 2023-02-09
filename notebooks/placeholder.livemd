@@ -1,10 +1,10 @@
-# Postexman - Use case 1
+# Token_Refresh - Use case 1
 
 ```elixir
 my_app_root = Path.join(__DIR__, "..")
 
 Mix.install([
-  {:postexman, path: my_app_root},
+  {:token_refresh, path: my_app_root},
   {:kino, "~> 0.8.1"}
 ])
 ```
